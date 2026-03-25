@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>恶搞同学跑酷 - 完美透视对齐版</title>
+    <title>恶搞同学跑酷</title>
     <!-- 引入 Three.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
@@ -41,14 +41,13 @@
         <div id="game-over" class="panel" style="display: none;">
             <h1 style="color: #c0392b;">被创飞了！</h1>
             <p style="font-size: 24px;">得分: <span id="final-score" style="color:#c0392b; font-weight:bold;">0</span></p>
-            <button onclick="location.reload()">重新坑他</button>
+            <button onclick="location.reload()">重新开始</button>
         </div>
 
         <div id="score-display">得分: 0</div>
     </div>
 
     <script>
-        // 音效系统保持不变
         const audioStart = new Audio('start.mp3');
         const audioBgm = new Audio('bgm.mp3');
         audioBgm.loop = true; 
@@ -68,8 +67,6 @@
         function init3DGame() {
             const scene = new THREE.Scene();
 
-            // 【核心修复1：摄像机对齐2D图片的地平线】
-            // 将镜头稍微抬高并轻微向下看，完美贴合背景图片中泥土路的倾斜透视！
             const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 200);
             camera.position.set(0, 6, 9); 
             camera.lookAt(0, 3, -100); 
@@ -80,24 +77,28 @@
 
             const textureLoader = new THREE.TextureLoader();
 
-            // 【核心修复2：重写物体高度基准，脚踩在真实的 Y=0 地面上】
+            // 玩家模型 (白衣服)
             const playerTexture = textureLoader.load('player.png');
             const playerMat = new THREE.MeshBasicMaterial({ map: playerTexture, transparent: true, side: THREE.DoubleSide });
-            // 为了抵消你抠图带的空白，画板足够大，并将锚点设在脚底！
-            const playerGeo = new THREE.PlaneGeometry(10, 14); 
-            playerGeo.translate(0, 5, 0); // 将图片往上提，让底部对齐地面
+            // 缩小玩家尺寸，防止遮挡视野
+            const playerGeo = new THREE.PlaneGeometry(6, 8.5); 
+            playerGeo.translate(0, 3.5, 0); 
             const player = new THREE.Mesh(playerGeo, playerMat);
-            player.position.set(0, 0, 0); // 严格站在 Y=0 的地平线上
+            player.position.set(0, 0, 0); 
             scene.add(player);
 
+            // 障碍物基础材质 (红衣服)
             const enemyTexture = textureLoader.load('enemy.png');
             const enemyMat = new THREE.MeshBasicMaterial({ map: enemyTexture, transparent: true, side: THREE.DoubleSide });
-            const enemyGeo = new THREE.PlaneGeometry(8, 10); 
-            enemyGeo.translate(0, 4, 0); // 障碍物也锚点在脚底
+            
+            // 【核心修复1：给障碍物瘦身！】
+            // 宽度从原来的8大幅缩小到4.5，现在他们绝不会再“手拉手”重叠了！
+            const enemyGeo = new THREE.PlaneGeometry(4.5, 6.5); 
+            enemyGeo.translate(0, 3.25, 0); 
 
-            // 【核心修复3：缩窄车道】
-            // 将原来的 3.5 缩小到 2.0，让人物始终在泥土路的范围内移动，不再出界！
-            const lanes = [-2.0, 0, 2.0]; 
+            // 【核心修复2：拉开跑道间距】
+            // 左右车道距拉宽到 2.5，泾渭分明
+            const lanes = [-2.5, 0, 2.5]; 
             let currentLane = 1;      
             let targetX = lanes[currentLane];
             
@@ -146,12 +147,13 @@
                 if (frames >= spawnInterval) {
                     frames = 0;
                     const numObstacles = Math.random() > 0.5 ? 1 : 2;
-                    const availableLanes = [0, 1, 2].sort(() => 0.5 - Math.random());
+                    const availableLanes =[0, 1, 2].sort(() => 0.5 - Math.random());
                     const blockedLanes = availableLanes.slice(0, numObstacles);
 
                     blockedLanes.forEach(laneIndex => {
-                        const obs = new THREE.Mesh(enemyGeo, enemyMat);
-                        // 严格在 Y=0 的平地上极远处生成，这样就会顺着路面变大
+                        // 【核心修复3：为每个克隆体生成独立的材质，用于单独淡化】
+                        const obsMatClone = enemyMat.clone();
+                        const obs = new THREE.Mesh(enemyGeo, obsMatClone);
                         obs.position.set(lanes[laneIndex], 0, -120); 
                         scene.add(obs);
                         obstacles.push(obs);
@@ -160,22 +162,29 @@
                     spawnInterval = 60 + Math.floor(Math.random() * 40); 
                 }
 
-                // 精准碰撞箱
+                // 精准的碰撞箱（变小一点，容错率更高，绝不擦边死）
                 playerHitbox.setFromCenterAndSize(
-                    new THREE.Vector3(player.position.x, 3, player.position.z),
-                    new THREE.Vector3(1.5, 5, 1.0) 
+                    new THREE.Vector3(player.position.x, 2.5, player.position.z),
+                    new THREE.Vector3(1.2, 4, 1.0) 
                 );
 
                 for (let i = 0; i < obstacles.length; i++) {
                     let obs = obstacles[i];
                     obs.position.z += gameSpeed; 
 
+                    // 【核心修复4：防遮挡提前淡化系统】
+                    // 当障碍物 Z坐标 大于 -1 (即快要贴身或者已经擦肩而过时)，迅速变透明！
+                    if (obs.position.z > -1) {
+                        obs.material.opacity = Math.max(0, 1 - (obs.position.z + 1) / 4);
+                    }
+
                     enemyHitbox.setFromCenterAndSize(
-                        new THREE.Vector3(obs.position.x, 3, obs.position.z),
-                        new THREE.Vector3(1.5, 5, 1.0)
+                        new THREE.Vector3(obs.position.x, 2.5, obs.position.z),
+                        new THREE.Vector3(1.2, 4, 1.0)
                     );
 
-                    if (playerHitbox.intersectsBox(enemyHitbox)) {
+                    // 只有在障碍物没有完全透明（即还没有完全错过）时才进行死亡判定
+                    if (obs.material.opacity > 0.5 && playerHitbox.intersectsBox(enemyHitbox)) {
                         isGameOver = true;
                         audioBgm.pause(); 
                         audioEnd.play();  
@@ -184,6 +193,7 @@
                         break;
                     }
 
+                    // 完全跑到脑后（摄像机后面）时销毁并加分
                     if (obs.position.z > 8) {
                         scene.remove(obs);
                         obstacles.splice(i, 1);
