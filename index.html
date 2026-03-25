@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>恶搞同学跑酷 - 音乐养老版</title>
+    <title>恶搞同学跑酷 - 完美透视对齐版</title>
     <!-- 引入 Three.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         body { 
             margin: 0; 
             overflow: hidden; 
-            background-image: url('bg.jpg'); /* 森林背景 */
+            background-image: url('bg.jpg'); 
             background-size: cover; 
             background-position: center bottom;
             font-family: 'Arial', sans-serif; 
@@ -33,35 +33,34 @@
 
     <div id="ui-layer">
         <div id="start-menu" class="panel">
-            <h1>能大快跑</h1>
+            <h1>熊大快跑</h1>
             <p style="color:#555; font-weight:bold; margin-bottom: 20px;">滑动屏幕：左右换道</p>
             <button onclick="startGame()">开始逃亡</button>
         </div>
 
         <div id="game-over" class="panel" style="display: none;">
-            <h1 style="color: #c0392b;">你被撞飞了！</h1>
+            <h1 style="color: #c0392b;">被创飞了！</h1>
             <p style="font-size: 24px;">得分: <span id="final-score" style="color:#c0392b; font-weight:bold;">0</span></p>
-            <button onclick="location.reload()">重新开始</button>
+            <button onclick="location.reload()">重新坑他</button>
         </div>
 
         <div id="score-display">得分: 0</div>
     </div>
 
     <script>
-        // --- 音效系统 ---
+        // 音效系统保持不变
         const audioStart = new Audio('start.mp3');
         const audioBgm = new Audio('bgm.mp3');
-        audioBgm.loop = true; // BGM循环播放
+        audioBgm.loop = true; 
         const audioEnd = new Audio('end.mp3');
 
         function startGame() {
             document.getElementById('start-menu').style.display = 'none';
             document.getElementById('score-display').style.display = 'block';
             
-            // 播放点击开始的音效，并同时播放BGM
-            audioStart.play().catch(e => console.log("等待交互后播放音频"));
-            audioBgm.volume = 0.6; // BGM音量稍微调小一点，防止太吵
-            audioBgm.play().catch(e => console.log("等待交互后播放音频"));
+            audioStart.play().catch(e => console.log("等待交互"));
+            audioBgm.volume = 0.6; 
+            audioBgm.play().catch(e => console.log("等待交互"));
 
             init3DGame();
         }
@@ -69,9 +68,11 @@
         function init3DGame() {
             const scene = new THREE.Scene();
 
+            // 【核心修复1：摄像机对齐2D图片的地平线】
+            // 将镜头稍微抬高并轻微向下看，完美贴合背景图片中泥土路的倾斜透视！
             const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 200);
-            camera.position.set(0, 4, 8); 
-            camera.lookAt(0, 4, -100); 
+            camera.position.set(0, 6, 9); 
+            camera.lookAt(0, 3, -100); 
 
             const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
@@ -79,30 +80,31 @@
 
             const textureLoader = new THREE.TextureLoader();
 
-            // 1. 加载玩家 (跑步的白衣服同学)
+            // 【核心修复2：重写物体高度基准，脚踩在真实的 Y=0 地面上】
             const playerTexture = textureLoader.load('player.png');
             const playerMat = new THREE.MeshBasicMaterial({ map: playerTexture, transparent: true, side: THREE.DoubleSide });
-            
-            // 【减肥手术】将原来的 24x30 大幅缩小到 6x8，视野极其开阔！
-            const playerGeo = new THREE.PlaneGeometry(6, 8); 
+            // 为了抵消你抠图带的空白，画板足够大，并将锚点设在脚底！
+            const playerGeo = new THREE.PlaneGeometry(10, 14); 
+            playerGeo.translate(0, 5, 0); // 将图片往上提，让底部对齐地面
             const player = new THREE.Mesh(playerGeo, playerMat);
-            player.position.set(0, 3, 0); // 调整Y轴高度让他脚踩在地上
+            player.position.set(0, 0, 0); // 严格站在 Y=0 的地平线上
             scene.add(player);
 
-            // 2. 加载障碍物 (红衣服同学)
             const enemyTexture = textureLoader.load('enemy.png');
             const enemyMat = new THREE.MeshBasicMaterial({ map: enemyTexture, transparent: true, side: THREE.DoubleSide });
-            const enemyGeo = new THREE.PlaneGeometry(4, 5); // 红衣服同学尺寸保持不变
+            const enemyGeo = new THREE.PlaneGeometry(8, 10); 
+            enemyGeo.translate(0, 4, 0); // 障碍物也锚点在脚底
 
-            const lanes =[-3.5, 0, 3.5]; 
+            // 【核心修复3：缩窄车道】
+            // 将原来的 3.5 缩小到 2.0，让人物始终在泥土路的范围内移动，不再出界！
+            const lanes = [-2.0, 0, 2.0]; 
             let currentLane = 1;      
             let targetX = lanes[currentLane];
             
-            // 【降低难度】减慢初始速度和加速频率
-            let gameSpeed = 0.45; // 初始速度大幅降低
+            let gameSpeed = 0.45; 
             let score = 0;
             let frames = 0;
-            let spawnInterval = 70; // 拉长第一波怪物的刷新时间
+            let spawnInterval = 70; 
             let isGameOver = false;
             const obstacles =[];
 
@@ -144,24 +146,24 @@
                 if (frames >= spawnInterval) {
                     frames = 0;
                     const numObstacles = Math.random() > 0.5 ? 1 : 2;
-                    const availableLanes =[0, 1, 2].sort(() => 0.5 - Math.random());
+                    const availableLanes = [0, 1, 2].sort(() => 0.5 - Math.random());
                     const blockedLanes = availableLanes.slice(0, numObstacles);
 
                     blockedLanes.forEach(laneIndex => {
                         const obs = new THREE.Mesh(enemyGeo, enemyMat);
-                        obs.position.set(lanes[laneIndex], 3, -130); 
+                        // 严格在 Y=0 的平地上极远处生成，这样就会顺着路面变大
+                        obs.position.set(lanes[laneIndex], 0, -120); 
                         scene.add(obs);
                         obstacles.push(obs);
                     });
                     
-                    // 【降低难度】拉长每波怪物的间距，防死局更稳
                     spawnInterval = 60 + Math.floor(Math.random() * 40); 
                 }
 
-                // 随着白衣同学体积变小，将真实物理受击面积同步缩小
+                // 精准碰撞箱
                 playerHitbox.setFromCenterAndSize(
-                    new THREE.Vector3(player.position.x, player.position.y, player.position.z),
-                    new THREE.Vector3(1.2, 3.5, 1.0) 
+                    new THREE.Vector3(player.position.x, 3, player.position.z),
+                    new THREE.Vector3(1.5, 5, 1.0) 
                 );
 
                 for (let i = 0; i < obstacles.length; i++) {
@@ -169,18 +171,14 @@
                     obs.position.z += gameSpeed; 
 
                     enemyHitbox.setFromCenterAndSize(
-                        new THREE.Vector3(obs.position.x, obs.position.y, obs.position.z),
-                        new THREE.Vector3(2.5, 4.5, 2)
+                        new THREE.Vector3(obs.position.x, 3, obs.position.z),
+                        new THREE.Vector3(1.5, 5, 1.0)
                     );
 
-                    // 发生撞击！
                     if (playerHitbox.intersectsBox(enemyHitbox)) {
                         isGameOver = true;
-                        
-                        // --- 音乐控制 ---
-                        audioBgm.pause(); // 暂停BGM
-                        audioEnd.play();  // 播放撞死惨叫声
-
+                        audioBgm.pause(); 
+                        audioEnd.play();  
                         document.getElementById('game-over').style.display = 'block';
                         document.getElementById('final-score').innerText = score;
                         break;
@@ -196,7 +194,6 @@
                 }
 
                 frames++;
-                // 【降低难度】加速度减缓，跑很久才会觉得快
                 gameSpeed += 0.00008; 
                 renderer.render(scene, camera);
             }
