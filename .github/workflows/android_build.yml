@@ -2,51 +2,43 @@ name: Build Android APK
 
 on:
   push:
-    branches: [ main ] # 当你向 main 分支提交代码时触发
+    branches: [ main ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. 拉取你的代码
       - name: Checkout Source
         uses: actions/checkout@v4
 
-      # 2. 安装 Node.js 环境
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      # 3. 安装 Java 环境 (编译 Android 必需)
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'zulu'
 
-      # 4. 安装依赖并处理资源
       - name: Install Dependencies and Generate Assets
         run: |
           npm install
-          # 安装资源生成工具
-          npm install @capacitor/assets -D
-          # 自动根据根目录 assets/icon.png 生成安卓所有尺寸图标
-          # 如果你还没上传 assets/icon.png，这一步会跳过或报错，请确保文件存在
-          npx capacitor-assets generate --android
-          # 同步配置到安卓平台
+          # 只有存在 assets/icon.png 时才运行生成命令
+          if [ -f "assets/icon.png" ]; then
+            npx @capacitor/assets generate --android
+          fi
           npx cap add android
           npx cap copy android
 
-      # 5. 赋予 Gradle 执行权限并编译 APK
       - name: Build APK
         run: |
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
 
-      # 6. 将生成的 APK 上传到 GitHub Actions 页面
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
