@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>恶搞同学跑酷</title>
-    <!-- 引入 Three.js -->
+    <title>恶搞跑酷 - 修复版</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         body { 
@@ -20,170 +19,172 @@
         #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
         .panel { pointer-events: auto; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
                  background: rgba(255, 255, 255, 0.95); padding: 30px; border-radius: 15px; text-align: center; 
-                 box-shadow: 0 10px 30px rgba(0,0,0,0.5); width: 80%; max-width: 300px; }
+                 box-shadow: 0 10px 30px rgba(0,0,0,0.5); width: 80%; max-width: 300px; display: none; }
         
-        h1 { margin-top: 0; color: #27ae60; text-shadow: 1px 1px 0 #fff; font-size: 28px; }
-        button { background: #27ae60; color: white; border: none; padding: 15px 30px; font-size: 20px; 
-                 border-radius: 30px; cursor: pointer; font-weight: bold; width: 100%; box-shadow: 0 5px 15px rgba(39,174,96,0.4); }
-        button:active { transform: scale(0.95); }
-        #score-display { position: absolute; top: 20px; left: 20px; font-size: 32px; font-weight: bold; color: white; text-shadow: 2px 2px 4px #000; display: none; }
+        h1 { margin-top: 0; color: #333; }
+        button { background: #ff4757; color: white; border: none; padding: 15px 40px; border-radius: 30px; 
+                 font-size: 20px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        button:active { transform: scale(0.9); }
+        
+        #score-display { position: absolute; top: 20px; left: 20px; font-size: 24px; color: white; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); }
+        #start-panel { display: block; }
     </style>
 </head>
 <body>
 
     <div id="ui-layer">
-        <div id="start-menu" class="panel">
-            <h1>熊大快跑</h1>
-            <p style="color:#555; font-weight:bold; margin-bottom: 20px;">滑动屏幕：左右换道</p>
-            <button onclick="startGame()">开始逃亡</button>
-        </div>
-
-        <div id="game-over" class="panel" style="display: none;">
-            <h1 style="color: #c0392b;">被创飞了！</h1>
-            <p style="font-size: 24px;">得分: <span id="final-score" style="color:#c0392b; font-weight:bold;">0</span></p>
-            <button onclick="location.reload()">重新开始</button>
-        </div>
-
         <div id="score-display">得分: 0</div>
+        
+        <div id="start-panel" class="panel">
+            <h1>熊大快跑</h1>
+            <p>左右滑动或点击两侧移动</p>
+            <button onclick="startGame()">开始游戏</button>
+        </div>
+
+        <div id="game-over" class="panel">
+            <h1>被抓住了！</h1>
+            <p>最终得分: <span id="final-score">0</span></p>
+            <button onclick="location.reload()">重新挑战</button>
+        </div>
     </div>
 
     <script>
-        const audioStart = new Audio('start.mp3');
-        const audioBgm = new Audio('bgm.mp3');
-        audioBgm.loop = true; 
-        const audioEnd = new Audio('end.mp3');
+        // 游戏资源（请确保这些文件与html在同一目录）
+        // 纹理: player.png, enemy.png, ground.jpg
+        // 音频: bgm.mp3, jump.mp3, end.mp3
 
         function startGame() {
-            document.getElementById('start-menu').style.display = 'none';
-            document.getElementById('score-display').style.display = 'block';
-            
-            audioStart.play().catch(e => console.log("等待交互"));
-            audioBgm.volume = 0.6; 
-            audioBgm.play().catch(e => console.log("等待交互"));
+            document.getElementById('start-panel').style.display = 'none';
 
-            init3DGame();
-        }
+            // 音频设置
+            const audioBgm = new Audio('bgm.mp3');
+            audioBgm.loop = true;
+            audioBgm.play();
+            const audioEnd = new Audio('end.mp3');
 
-        function init3DGame() {
+            // --- 1. 基础场景 ---
             const scene = new THREE.Scene();
+            // 雾气效果，让远处看起来朦胧一点，更有纵深感
+            scene.fog = new THREE.Fog(0x000000, 10, 30);
 
-            const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 200);
-            camera.position.set(0, 6, 9); 
-            camera.lookAt(0, 3, -100); 
-
+            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
             const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             document.body.appendChild(renderer.domElement);
 
-            const textureLoader = new THREE.TextureLoader();
+            // 摄像机位置 (高度稍低，俯视跑道)
+            camera.position.set(0, 3, 5);
+            camera.lookAt(0, 1, -5);
 
-            // 玩家模型 (白衣服)
+            // --- 2. 跑道地面 ---
+            const textureLoader = new THREE.TextureLoader();
+            const groundTexture = textureLoader.load('ground.jpg');
+            groundTexture.wrapS = THREE.RepeatWrapping;
+            groundTexture.wrapT = THREE.RepeatWrapping;
+            groundTexture.repeat.set(1, 10); // 增加纵向重复
+
+            const groundGeo = new THREE.PlaneGeometry(10, 100);
+            const groundMat = new THREE.MeshBasicMaterial({ map: groundTexture });
+            const ground = new THREE.Mesh(groundGeo, groundMat);
+            ground.rotation.x = -Math.PI / 2;
+            ground.position.z = -40;
+            scene.add(ground);
+
+            // --- 3. 玩家设置 ---
             const playerTexture = textureLoader.load('player.png');
             const playerMat = new THREE.MeshBasicMaterial({ map: playerTexture, transparent: true, side: THREE.DoubleSide });
-            // 缩小玩家尺寸，防止遮挡视野
-            const playerGeo = new THREE.PlaneGeometry(6, 8.5); 
-            playerGeo.translate(0, 3.5, 0); 
+            
+            // 【核心修复：缩小玩家尺寸】适配手机竖屏
+            const playerGeo = new THREE.PlaneGeometry(1.2, 1.7); 
+            playerGeo.translate(0, 0.85, 0); 
             const player = new THREE.Mesh(playerGeo, playerMat);
             player.position.set(0, 0, 0); 
             scene.add(player);
 
-            // 障碍物基础材质 (红衣服)
-            const enemyTexture = textureLoader.load('enemy.png');
-            const enemyMat = new THREE.MeshBasicMaterial({ map: enemyTexture, transparent: true, side: THREE.DoubleSide });
-            
-            // 【核心修复1：给障碍物瘦身！】
-            // 宽度从原来的8大幅缩小到4.5，现在他们绝不会再“手拉手”重叠了！
-            const enemyGeo = new THREE.PlaneGeometry(4.5, 6.5); 
-            enemyGeo.translate(0, 3.25, 0); 
-
-            // 【核心修复2：拉开跑道间距】
-            // 左右车道距拉宽到 2.5，泾渭分明
-            const lanes = [-2.5, 0, 2.5]; 
+            // 【核心修复：收窄跑道间距】从2.5降到1.4，防止卡墙
+            const lanes = [-1.4, 0, 1.4]; 
             let currentLane = 1;      
             let targetX = lanes[currentLane];
+
+            // --- 4. 障碍物管理 ---
+            const obstacles = [];
+            const enemyTexture = textureLoader.load('enemy.png');
             
-            let gameSpeed = 0.45; 
+            // 【核心修复：缩小障碍物尺寸】
+            const enemyGeo = new THREE.PlaneGeometry(1.2, 1.73); 
+            enemyGeo.translate(0, 0.865, 0); 
+
+            function spawnObstacle() {
+                const mat = new THREE.MeshBasicMaterial({ map: enemyTexture, transparent: true });
+                const obs = new THREE.Mesh(enemyGeo, mat);
+                const laneIdx = Math.floor(Math.random() * 3);
+                obs.position.set(lanes[laneIdx], 0, -25);
+                scene.add(obs);
+                obstacles.push(obs);
+            }
+
+            // --- 5. 交互控制 ---
+            window.addEventListener('touchstart', (e) => {
+                const x = e.touches[0].clientX;
+                if (x < window.innerWidth / 2) {
+                    if (currentLane > 0) currentLane--;
+                } else {
+                    if (currentLane < 2) currentLane++;
+                }
+                targetX = lanes[currentLane];
+            });
+
+            window.addEventListener('keydown', (e) => {
+                if (e.key === 'ArrowLeft' && currentLane > 0) currentLane--;
+                if (e.key === 'ArrowRight' && currentLane < 2) currentLane++;
+                targetX = lanes[currentLane];
+            });
+
+            // --- 6. 游戏主循环 ---
             let score = 0;
-            let frames = 0;
-            let spawnInterval = 70; 
+            let gameSpeed = 0.15;
             let isGameOver = false;
-            const obstacles =[];
+            let frames = 0;
 
             const playerHitbox = new THREE.Box3();
             const enemyHitbox = new THREE.Box3();
-
-            function moveLeft() { if (currentLane > 0) currentLane--; targetX = lanes[currentLane]; }
-            function moveRight() { if (currentLane < 2) currentLane++; targetX = lanes[currentLane]; }
-
-            window.addEventListener('keydown', (e) => {
-                if (e.code === 'ArrowLeft') moveLeft();
-                if (e.code === 'ArrowRight') moveRight();
-            });
-
-            let touchStartX = 0;
-            window.addEventListener('touchstart', e => {
-                touchStartX = e.changedTouches[0].screenX;
-            });
-            window.addEventListener('touchend', e => {
-                let dx = e.changedTouches[0].screenX - touchStartX;
-                if (Math.abs(dx) > 30) { 
-                    if (dx > 0) moveRight();
-                    else moveLeft();
-                }
-            });
-
-            window.addEventListener('resize', () => {
-                camera.aspect = window.innerWidth / window.innerHeight;
-                camera.updateProjectionMatrix();
-                renderer.setSize(window.innerWidth, window.innerHeight);
-            });
 
             function animate() {
                 if (isGameOver) return;
                 requestAnimationFrame(animate);
 
-                player.position.x += (targetX - player.position.x) * 0.2;
+                // 玩家平滑移动
+                player.position.x += (targetX - player.position.x) * 0.15;
+                
+                // 地面滚动效果
+                groundTexture.offset.y -= gameSpeed * 0.2;
 
-                if (frames >= spawnInterval) {
-                    frames = 0;
-                    const numObstacles = Math.random() > 0.5 ? 1 : 2;
-                    const availableLanes =[0, 1, 2].sort(() => 0.5 - Math.random());
-                    const blockedLanes = availableLanes.slice(0, numObstacles);
+                // 生成障碍物
+                if (frames % 60 === 0) spawnObstacle();
 
-                    blockedLanes.forEach(laneIndex => {
-                        // 【核心修复3：为每个克隆体生成独立的材质，用于单独淡化】
-                        const obsMatClone = enemyMat.clone();
-                        const obs = new THREE.Mesh(enemyGeo, obsMatClone);
-                        obs.position.set(lanes[laneIndex], 0, -120); 
-                        scene.add(obs);
-                        obstacles.push(obs);
-                    });
-                    
-                    spawnInterval = 60 + Math.floor(Math.random() * 40); 
-                }
-
-                // 精准的碰撞箱（变小一点，容错率更高，绝不擦边死）
+                // 更新玩家碰撞箱 (中心高度0.85，尺寸收紧提高手感)
                 playerHitbox.setFromCenterAndSize(
-                    new THREE.Vector3(player.position.x, 2.5, player.position.z),
-                    new THREE.Vector3(1.2, 4, 1.0) 
+                    new THREE.Vector3(player.position.x, 0.85, player.position.z),
+                    new THREE.Vector3(0.8, 1.5, 1.0) 
                 );
 
+                // 障碍物逻辑
                 for (let i = 0; i < obstacles.length; i++) {
                     let obs = obstacles[i];
                     obs.position.z += gameSpeed; 
 
-                    // 【核心修复4：防遮挡提前淡化系统】
-                    // 当障碍物 Z坐标 大于 -1 (即快要贴身或者已经擦肩而过时)，迅速变透明！
+                    // 离得非常近时淡出，防止遮挡视线
                     if (obs.position.z > -1) {
                         obs.material.opacity = Math.max(0, 1 - (obs.position.z + 1) / 4);
                     }
 
+                    // 更新障碍物碰撞箱 (中心高度0.865)
                     enemyHitbox.setFromCenterAndSize(
-                        new THREE.Vector3(obs.position.x, 2.5, obs.position.z),
-                        new THREE.Vector3(1.2, 4, 1.0)
+                        new THREE.Vector3(obs.position.x, 0.865, obs.position.z),
+                        new THREE.Vector3(0.8, 1.5, 1.0)
                     );
 
-                    // 只有在障碍物没有完全透明（即还没有完全错过）时才进行死亡判定
+                    // 碰撞判定
                     if (obs.material.opacity > 0.5 && playerHitbox.intersectsBox(enemyHitbox)) {
                         isGameOver = true;
                         audioBgm.pause(); 
@@ -193,7 +194,7 @@
                         break;
                     }
 
-                    // 完全跑到脑后（摄像机后面）时销毁并加分
+                    // 移除跑出屏幕的障碍物
                     if (obs.position.z > 8) {
                         scene.remove(obs);
                         obstacles.splice(i, 1);
@@ -204,7 +205,7 @@
                 }
 
                 frames++;
-                gameSpeed += 0.00008; 
+                gameSpeed += 0.00005; // 难度随时间缓慢增加
                 renderer.render(scene, camera);
             }
 
@@ -213,3 +214,4 @@
     </script>
 </body>
 </html>
+
