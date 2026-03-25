@@ -180,11 +180,6 @@
                 }
 
                 // 精准的碰撞箱（变小一点，容错率更高，绝不擦边死）
-                playerHitbox.setFromCenterAndSize(
-                    new THREE.Vector3(player.position.x, 3, player.position.z),
-                    new THREE.Vector3(1.5, 5, 1.5)
-                );
-
                 for (let i = 0; i < obstacles.length; i++) {
                     let obs = obstacles[i];
                     obs.position.z += gameSpeed;
@@ -201,16 +196,21 @@
                         obs.material.opacity = 1;
                     }
 
-                    // 碰撞箱随scale动态调整
-                    const hitW = sc * 0.5;
-                    const hitH = sc * 0.8;
-                    enemyHitbox.setFromCenterAndSize(
-                        new THREE.Vector3(obs.position.x, hitH * 0.5, obs.position.z),
-                        new THREE.Vector3(hitW, hitH, 1.0)
-                    );
+                        // 碰撞判定：只在障碍物到达玩家面前（Z接近0）时才检测
+                    // 判定窗口：Z在 -3 到 2 之间，即障碍物"经过"玩家的瞬间
+                    if (obs.position.z > -3 && obs.position.z < 2) {
+                        // 碰撞箱用固定合理大小，不跟scale走（scale是视觉效果）
+                        enemyHitbox.setFromCenterAndSize(
+                            new THREE.Vector3(obs.position.x, 3, 0),
+                            new THREE.Vector3(1.2, 5, 4.0)
+                        );
+                        playerHitbox.setFromCenterAndSize(
+                            new THREE.Vector3(player.position.x, 3, 0),
+                            new THREE.Vector3(1.0, 5, 4.0)
+                        );
+                    }
 
-                    // 只有在障碍物没有完全透明（即还没有完全错过）时才进行死亡判定
-                    if (obs.material.opacity > 0.5 && playerHitbox.intersectsBox(enemyHitbox)) {
+                    if (obs.position.z > -3 && obs.position.z < 2 && playerHitbox.intersectsBox(enemyHitbox)) {
                         isGameOver = true;
                         audioBgm.pause(); 
                         audioEnd.play();  
@@ -239,4 +239,3 @@
     </script>
 </body>
 </html>
-
