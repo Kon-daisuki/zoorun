@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>恶搞跑酷 - 尺寸放大版</title>
+    <title>恶搞跑酷 - 滑动修复版</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         body { 
@@ -13,7 +13,7 @@
             background-size: cover; 
             background-position: center bottom;
             font-family: 'Arial', sans-serif; 
-            touch-action: none; 
+            touch-action: none; /* 禁用系统默认手势，防止滑动时页面跳动 */
         }
         
         #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
@@ -37,7 +37,7 @@
         
         <div id="start-panel" class="panel">
             <h1>熊大快跑</h1>
-            <p>左右滑动或点击两侧移动</p>
+            <p>支持左右滑动、点击或键盘方向键</p>
             <button onclick="startGame()">开始游戏</button>
         </div>
 
@@ -54,7 +54,7 @@
 
             const audioBgm = new Audio('bgm.mp3');
             audioBgm.loop = true;
-            audioBgm.play();
+            audioBgm.play().catch(e => console.log("等待交互播放音乐"));
             const audioEnd = new Audio('end.mp3');
 
             // --- 1. 基础场景 ---
@@ -66,7 +66,7 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
             document.body.appendChild(renderer.domElement);
 
-            camera.position.set(0, 3.5, 6); // 稍微调高一点摄像机，适应更大的模型
+            camera.position.set(0, 3.5, 6); 
             camera.lookAt(0, 1, -5);
 
             // --- 2. 跑道地面 ---
@@ -87,14 +87,12 @@
             const playerTexture = textureLoader.load('player.png');
             const playerMat = new THREE.MeshBasicMaterial({ map: playerTexture, transparent: true, side: THREE.DoubleSide });
             
-            // 【调整：适当放大尺寸】宽度1.6，高度2.2
-            const playerGeo = new THREE.PlaneGeometry(1.6, 2.2); 
+            const playerGeo = new THREE.PlaneGeometry(5, 4.5); 
             playerGeo.translate(0, 1.1, 0); 
             const player = new THREE.Mesh(playerGeo, playerMat);
             player.position.set(0, 0, 0); 
             scene.add(player);
 
-            // 【调整：同步放宽间距】从1.4增加到1.8，确保大尺寸模型不重叠
             const lanes = [-1.8, 0, 1.8]; 
             let currentLane = 1;      
             let targetX = lanes[currentLane];
@@ -102,30 +100,52 @@
             // --- 4. 障碍物管理 ---
             const obstacles = [];
             const enemyTexture = textureLoader.load('enemy.png');
-            
-            // 【调整：障碍物尺寸也同步放大】
-            const enemyGeo = new THREE.PlaneGeometry(1.6, 2.3); 
+            const enemyGeo = new THREE.PlaneGeometry(3.5, 3); 
             enemyGeo.translate(0, 1.15, 0); 
 
             function spawnObstacle() {
                 const mat = new THREE.MeshBasicMaterial({ map: enemyTexture, transparent: true });
                 const obs = new THREE.Mesh(enemyGeo, mat);
                 const laneIdx = Math.floor(Math.random() * 3);
-                obs.position.set(lanes[laneIdx], 0, -30); // 稍微放远一点生成，给玩家反应时间
+                obs.position.set(lanes[laneIdx], 0, -30);
                 scene.add(obs);
                 obstacles.push(obs);
             }
 
-            // --- 5. 交互控制 ---
+            // --- 5. 交互控制 (修复滑动逻辑) ---
+            let touchStartX = 0;
+            let touchStartTime = 0;
+
             window.addEventListener('touchstart', (e) => {
-                const x = e.touches[0].clientX;
-                if (x < window.innerWidth / 2) {
-                    if (currentLane > 0) currentLane--;
+                touchStartX = e.touches[0].clientX;
+                touchStartTime = Date.now();
+            }, { passive: false });
+
+            window.addEventListener('touchend', (e) => {
+                const touchEndX = e.changedTouches[0].clientX;
+                const touchEndTime = Date.now();
+                
+                const distanceX = touchEndX - touchStartX;
+                const duration = touchEndTime - touchStartTime;
+
+                // 判定是否为“滑动” (水平位移超过30px 且 时间较短)
+                if (Math.abs(distanceX) > 30 && duration < 300) {
+                    if (distanceX > 0) { // 向右滑
+                        if (currentLane < 2) currentLane++;
+                    } else { // 向左滑
+                        if (currentLane > 0) currentLane--;
+                    }
                 } else {
-                    if (currentLane < 2) currentLane++;
+                    // 如果不是滑动，则维持原有的“点击两侧”逻辑
+                    const x = touchEndX;
+                    if (x < window.innerWidth / 2) {
+                        if (currentLane > 0) currentLane--;
+                    } else {
+                        if (currentLane < 2) currentLane++;
+                    }
                 }
                 targetX = lanes[currentLane];
-            });
+            }, { passive: false });
 
             window.addEventListener('keydown', (e) => {
                 if (e.key === 'ArrowLeft' && currentLane > 0) currentLane--;
@@ -135,7 +155,7 @@
 
             // --- 6. 游戏主循环 ---
             let score = 0;
-            let gameSpeed = 0.18; // 稍微提升基础初速，因为模型变大了
+            let gameSpeed = 0.18;
             let isGameOver = false;
             let frames = 0;
 
@@ -149,9 +169,8 @@
                 player.position.x += (targetX - player.position.x) * 0.15;
                 groundTexture.offset.y -= gameSpeed * 0.2;
 
-                if (frames % 55 === 0) spawnObstacle(); // 生成频率稍微加快
+                if (frames % 55 === 0) spawnObstacle();
 
-                // 更新玩家碰撞箱 (尺寸随模型放大而微调)
                 playerHitbox.setFromCenterAndSize(
                     new THREE.Vector3(player.position.x, 1.1, player.position.z),
                     new THREE.Vector3(1.0, 2.0, 1.0) 
@@ -165,7 +184,6 @@
                         obs.material.opacity = Math.max(0, 1 - (obs.position.z + 1) / 5);
                     }
 
-                    // 更新障碍物碰撞箱
                     enemyHitbox.setFromCenterAndSize(
                         new THREE.Vector3(obs.position.x, 1.15, obs.position.z),
                         new THREE.Vector3(1.0, 2.0, 1.0)
@@ -199,3 +217,4 @@
     </script>
 </body>
 </html>
+
