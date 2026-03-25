@@ -49,14 +49,21 @@
     </div>
 
     <script>
+        const audioStart = new Audio('start.mp3');
+        const audioBgm = new Audio('bgm.mp3');
+        audioBgm.loop = true; 
+        const audioEnd = new Audio('end.mp3');  
+
         function startGame() {
-            document.getElementById('start-panel').style.display = 'none';
+            document.getElementById('start-menu').style.display = 'none';
+            document.getElementById('score-display').style.display = 'block';
+            
+            audioStart.play().catch(e => console.log("等待交互"));
+            audioBgm.volume = 0.6; 
+            audioBgm.play().catch(e => console.log("等待交互"));
 
-            const audioBgm = new Audio('bgm.mp3');
-            audioBgm.loop = true;
-            audioBgm.play().catch(e => console.log("等待交互播放音乐"));
-            const audioEnd = new Audio('end.mp3');
-
+            init3DGame();
+        }
             // --- 1. 基础场景 ---
             const scene = new THREE.Scene();
             scene.fog = new THREE.Fog(0x000000, 10, 35);
