@@ -1,6 +1,6 @@
 {
   "appId": "com.zoorun.app",
-  "appName": "bear run",
+  "appName": "熊大快跑",
   "webDir": "src",
   "bundledWebRuntime": false
 }
