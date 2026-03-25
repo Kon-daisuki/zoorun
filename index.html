@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3D恶搞同学跑酷 - 森林进化版</title>
+    <!-- 引入 Three.js 3D引擎 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #2e4a22; font-family: 'Arial', sans-serif; touch-action: none; }
+        
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
+        .panel { pointer-events: auto; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+                 background: rgba(255, 255, 255, 0.95); padding: 20px; border-radius: 15px; text-align: center; 
+                 box-shadow: 0 10px 30px rgba(0,0,0,0.5); width: 80%; max-width: 400px; }
+        
+        h1 { margin-top: 0; color: #27ae60; text-shadow: 1px 1px 0 #000; }
+        .character-select { display: flex; justify-content: space-around; margin: 20px 0; }
+        .char-btn { width: 80px; height: 80px; border: 3px solid #ccc; border-radius: 10px; cursor: pointer; 
+                    background-color: #eee; background-size: cover; background-position: center; transition: 0.3s; }
+        .char-btn.selected { border-color: #27ae60; transform: scale(1.1); box-shadow: 0 0 15px #27ae60; }
+        
+        button { background: #27ae60; color: white; border: none; padding: 12px 30px; font-size: 20px; 
+                 border-radius: 30px; cursor: pointer; font-weight: bold; box-shadow: 0 5px 15px rgba(39,174,96,0.4); }
+        button:active { transform: scale(0.95); }
+        #score-display { position: absolute; top: 20px; left: 20px; font-size: 28px; font-weight: bold; color: white; text-shadow: 2px 2px 0 #000; display: none; }
+        #loading { position: absolute; top: 10px; right: 10px; color: white; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div id="ui-layer">
+        <div id="start-menu" class="panel">
+            <h1>选择受害者</h1>
+            <p style="color:#555; font-weight:bold;">上滑:跳跃 | 下滑:下蹲钻过 | 左右:躲避</p>
+            <div class="character-select">
+                <div class="char-btn selected" id="char1" style="background-image: url('player1.png');" onclick="selectChar(1)"></div>
+                <div class="char-btn" id="char2" style="background-image: url('player2.png');" onclick="selectChar(2)"></div>
+            </div>
+            <button onclick="startGame()">进入森林 (START)</button>
+        </div>
+
+        <div id="game-over" class="panel" style="display: none;">
+            <h1 style="color: #c0392b;">发生惨烈车祸！</h1>
+            <p style="font-size: 20px;">最终得分: <span id="final-score" style="color:#c0392b; font-weight:bold;">0</span></p>
+            <button onclick="location.reload()">再坑一次</button>
+        </div>
+
+        <div id="score-display">得分: 0</div>
+    </div>
+
+    <script>
+        let selectedPlayerSrc = "player1.png";
+
+        function selectChar(num) {
+            document.getElementById('char1').classList.remove('selected');
+            document.getElementById('char2').classList.remove('selected');
+            document.getElementById('char' + num).classList.add('selected');
+            selectedPlayerSrc = num === 1 ? "player1.png" : "player2.png";
+        }
+
+        function startGame() {
+            document.getElementById('start-menu').style.display = 'none';
+            document.getElementById('score-display').style.display = 'block';
+            init3DGame();
+        }
+
+        function init3DGame() {
+            const scene = new THREE.Scene();
+            
+            // 【新增】加载森林背景贴图
+            const textureLoader = new THREE.TextureLoader();
+            textureLoader.load('forest_bg.jpg', function(texture) {
+                scene.background = texture;
+            }, undefined, function() {
+                scene.background = new THREE.Color(0x2e4a22); // 如果图片没加载出来，用深绿色代替
+            });
+            // 雾化效果（让远处有森林深处的神秘感）
+            scene.fog = new THREE.Fog(0x2e4a22, 20, 100);
+
+            const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 150);
+            camera.position.set(0, 5, 9);
+            camera.lookAt(0, 0, -15);
+
+            const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            const light = new THREE.DirectionalLight(0xffffff, 1.2);
+            light.position.set(0, 15, 10);
+            scene.add(light);
+            scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+
+            // 【新增】加载跑道地面贴图
+            const groundTex = textureLoader.load('runway.jpg');
+            groundTex.wrapS = THREE.RepeatWrapping;
+            groundTex.wrapT = THREE.RepeatWrapping;
+            groundTex.repeat.set(4, 50); // 让材质重复平铺，避免拉伸
+            const groundGeo = new THREE.PlaneGeometry(30, 300);
+            const groundMat = new THREE.MeshLambertMaterial({ map: groundTex });
+            const ground = new THREE.Mesh(groundGeo, groundMat);
+            ground.rotation.x = -Math.PI / 2;
+            ground.position.z = -50;
+            scene.add(ground);
+
+            // 主角加载
+            const playerTexture = textureLoader.load(selectedPlayerSrc);
+            const playerMat = new THREE.MeshBasicMaterial({ map: playerTexture, transparent: true, side: THREE.DoubleSide });
+            const playerGeo = new THREE.PlaneGeometry(2, 3);
+            playerGeo.translate(0, 1.5, 0); 
+            const player = new THREE.Mesh(playerGeo, playerMat);
+            player.position.set(0, 0, 0); 
+            scene.add(player);
+
+            const lanes = [-3, 0, 3]; 
+            let currentLane = 1;      
+            let targetX = lanes[currentLane];
+            
+            let velocityY = 0;
+            const gravity = -0.015;
+            const jumpPower = 0.35;
+            let isJumping = false;
+            let isDucking = false;
+            let duckTimer = 0; 
+
+            let gameSpeed = 0.5;
+            let score = 0;
+            let frames = 0;
+            let isGameOver = false;
+            const obstacles =[];
+
+            // 【新增】加载障碍物图片材质 (使用 PlaneGeometry 让图片像纸片立牌一样立在路上)
+            const lowObsTex = textureLoader.load('obstacle_low.png');
+            const highObsTex = textureLoader.load('obstacle_high.png');
+            const lowObsMat = new THREE.MeshBasicMaterial({ map: lowObsTex, transparent: true, side: THREE.DoubleSide }); 
+            const highObsMat = new THREE.MeshBasicMaterial({ map: highObsTex, transparent: true, side: THREE.DoubleSide });
+            
+            const obsGeo = new THREE.PlaneGeometry(2.5, 2.5); // 障碍物的平面大小
+
+            const playerBox = new THREE.Box3();
+            const obsBox = new THREE.Box3();
+
+            function moveLeft() { if (currentLane > 0) currentLane--; targetX = lanes[currentLane]; }
+            function moveRight() { if (currentLane < 2) currentLane++; targetX = lanes[currentLane]; }
+            function jump() { 
+                if (!isJumping) { 
+                    velocityY = jumpPower; 
+                    isJumping = true; 
+                    if(isDucking) unduck(); 
+                } 
+            }
+            function duck() {
+                isDucking = true;
+                duckTimer = 40; 
+                player.scale.y = 0.4; 
+                if (isJumping) velocityY = -0.4; 
+            }
+            function unduck() {
+                isDucking = false;
+                player.scale.y = 1; 
+            }
+
+            window.addEventListener('keydown', (e) => {
+                if (e.code === 'ArrowLeft') moveLeft();
+                if (e.code === 'ArrowRight') moveRight();
+                if (e.code === 'ArrowUp') jump();
+                if (e.code === 'ArrowDown') duck();
+            });
+
+            let touchStartX = 0, touchStartY = 0;
+            window.addEventListener('touchstart', e => {
+                touchStartX = e.changedTouches[0].screenX;
+                touchStartY = e.changedTouches[0].screenY;
+            });
+            window.addEventListener('touchend', e => {
+                let dx = e.changedTouches[0].screenX - touchStartX;
+                let dy = e.changedTouches[0].screenY - touchStartY;
+                if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 30) { 
+                    if (dx > 0) moveRight();
+                    else moveLeft();
+                } else if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 30) { 
+                    if (dy < 0) jump(); 
+                    else duck();        
+                }
+            });
+
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+
+            function animate() {
+                if (isGameOver) return;
+                requestAnimationFrame(animate);
+
+                player.position.x += (targetX - player.position.x) * 0.2;
+                player.position.y += velocityY;
+                if (player.position.y > 0) {
+                    velocityY += gravity; 
+                } else {
+                    player.position.y = 0; 
+                    velocityY = 0;
+                    isJumping = false;
+                }
+
+                if (isDucking) {
+                    duckTimer--;
+                    if (duckTimer <= 0) unduck();
+                }
+
+                // 生成带有图片的障碍物
+                if (frames % 50 === 0) {
+                    const laneIndex = Math.floor(Math.random() * 3);
+                    const isHigh = Math.random() > 0.5; 
+                    
+                    let obs;
+                    if (isHigh) {
+                        obs = new THREE.Mesh(obsGeo, highObsMat);
+                        obs.position.set(lanes[laneIndex], 2.8, -80); // 悬浮高空
+                    } else {
+                        obs = new THREE.Mesh(obsGeo, lowObsMat);
+                        obs.position.set(lanes[laneIndex], 1.25, -80); // 贴近地面
+                    }
+                    scene.add(obs);
+                    obstacles.push(obs);
+                }
+
+                // 纹理动画：让地面看起来在往后退（配合跑道贴图）
+                groundTex.offset.y -= gameSpeed * 0.05;
+
+                playerBox.setFromObject(player);
+                playerBox.expandByScalar(-0.4); // 缩小判定体积，增加容错率
+
+                for (let i = 0; i < obstacles.length; i++) {
+                    let obs = obstacles[i];
+                    obs.position.z += gameSpeed;
+
+                    obsBox.setFromObject(obs);
+                    obsBox.expandByScalar(-0.2); // 缩小障碍物判定体积
+
+                    if (playerBox.intersectsBox(obsBox)) {
+                        isGameOver = true;
+                        document.getElementById('game-over').style.display = 'block';
+                        document.getElementById('final-score').innerText = score;
+                        break;
+                    }
+
+                    if (obs.position.z > 5) {
+                        scene.remove(obs);
+                        obstacles.splice(i, 1);
+                        score += 10;
+                        document.getElementById('score-display').innerText = "得分: " + score;
+                        i--;
+                    }
+                }
+
+                frames++;
+                gameSpeed += 0.0001;
+                renderer.render(scene, camera);
+            }
+
+            animate();
+        }
+    </script>
+</body>
+</html>
