@@ -160,9 +160,13 @@
 
                 if (frames >= spawnInterval) {
                     frames = 0;
-                    const numObstacles = Math.random() > 0.5 ? 1 : 2;
-                    const availableLanes =[0, 1, 2].sort(() => 0.5 - Math.random());
-                    const blockedLanes = availableLanes.slice(0, numObstacles);
+                    // 始终保证至少有1条空道可以躲
+                    // 先随机选1条"安全道"，剩余2道里随机堵0~1条
+                    const safeLane = Math.floor(Math.random() * 3);
+                    const otherLanes = [0, 1, 2].filter(l => l !== safeLane);
+                    // 50%概率只堵1条，50%概率堵2条（但安全道永远畅通）
+                    const numExtra = Math.random() > 0.5 ? 1 : 2;
+                    const blockedLanes = otherLanes.slice(0, numExtra);
 
                     blockedLanes.forEach(laneIndex => {
                         const obsMatClone = enemyMat.clone();
@@ -239,3 +243,4 @@
     </script>
 </body>
 </html>
+
