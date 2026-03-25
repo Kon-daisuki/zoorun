@@ -3,62 +3,52 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>3D恶搞同学跑酷 - 森林进化版</title>
-    <!-- 引入 Three.js 3D引擎 -->
+    <title>恶搞同学跑酷 - 完美版</title>
+    <!-- 引入 Three.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #2e4a22; font-family: 'Arial', sans-serif; touch-action: none; }
+        /* 核心修复1：将跑道图片作为网页固定背景，不会变形 */
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background-image: url('bg.jpg'); /* 你的森林跑道图片 */
+            background-size: cover; 
+            background-position: center bottom;
+            font-family: 'Arial', sans-serif; 
+            touch-action: none; 
+        }
         
         #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
         .panel { pointer-events: auto; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
-                 background: rgba(255, 255, 255, 0.95); padding: 20px; border-radius: 15px; text-align: center; 
-                 box-shadow: 0 10px 30px rgba(0,0,0,0.5); width: 80%; max-width: 400px; }
+                 background: rgba(255, 255, 255, 0.95); padding: 30px; border-radius: 15px; text-align: center; 
+                 box-shadow: 0 10px 30px rgba(0,0,0,0.5); width: 80%; max-width: 300px; }
         
-        h1 { margin-top: 0; color: #27ae60; text-shadow: 1px 1px 0 #000; }
-        .character-select { display: flex; justify-content: space-around; margin: 20px 0; }
-        .char-btn { width: 80px; height: 80px; border: 3px solid #ccc; border-radius: 10px; cursor: pointer; 
-                    background-color: #eee; background-size: cover; background-position: center; transition: 0.3s; }
-        .char-btn.selected { border-color: #27ae60; transform: scale(1.1); box-shadow: 0 0 15px #27ae60; }
-        
-        button { background: #27ae60; color: white; border: none; padding: 12px 30px; font-size: 20px; 
-                 border-radius: 30px; cursor: pointer; font-weight: bold; box-shadow: 0 5px 15px rgba(39,174,96,0.4); }
+        h1 { margin-top: 0; color: #27ae60; text-shadow: 1px 1px 0 #fff; font-size: 28px; }
+        button { background: #27ae60; color: white; border: none; padding: 15px 30px; font-size: 20px; 
+                 border-radius: 30px; cursor: pointer; font-weight: bold; width: 100%; box-shadow: 0 5px 15px rgba(39,174,96,0.4); }
         button:active { transform: scale(0.95); }
-        #score-display { position: absolute; top: 20px; left: 20px; font-size: 28px; font-weight: bold; color: white; text-shadow: 2px 2px 0 #000; display: none; }
-        #loading { position: absolute; top: 10px; right: 10px; color: white; font-weight: bold; }
+        #score-display { position: absolute; top: 20px; left: 20px; font-size: 32px; font-weight: bold; color: white; text-shadow: 2px 2px 4px #000; display: none; }
     </style>
 </head>
 <body>
 
     <div id="ui-layer">
         <div id="start-menu" class="panel">
-            <h1>选择受害者</h1>
-            <p style="color:#555; font-weight:bold;">上滑:跳跃 | 下滑:下蹲钻过 | 左右:躲避</p>
-            <div class="character-select">
-                <div class="char-btn selected" id="char1" style="background-image: url('player1.png');" onclick="selectChar(1)"></div>
-                <div class="char-btn" id="char2" style="background-image: url('player2.png');" onclick="selectChar(2)"></div>
-            </div>
-            <button onclick="startGame()">进入森林 (START)</button>
+            <h1>森林大逃亡</h1>
+            <p style="color:#555; font-weight:bold; margin-bottom: 20px;">滑动屏幕：左右躲避</p>
+            <button onclick="startGame()">开始跑酷</button>
         </div>
 
         <div id="game-over" class="panel" style="display: none;">
-            <h1 style="color: #c0392b;">发生惨烈车祸！</h1>
-            <p style="font-size: 20px;">最终得分: <span id="final-score" style="color:#c0392b; font-weight:bold;">0</span></p>
-            <button onclick="location.reload()">再坑一次</button>
+            <h1 style="color: #c0392b;">你撞死了！</h1>
+            <p style="font-size: 24px;">得分: <span id="final-score" style="color:#c0392b; font-weight:bold;">0</span></p>
+            <button onclick="location.reload()">再来一次</button>
         </div>
 
         <div id="score-display">得分: 0</div>
     </div>
 
     <script>
-        let selectedPlayerSrc = "player1.png";
-
-        function selectChar(num) {
-            document.getElementById('char1').classList.remove('selected');
-            document.getElementById('char2').classList.remove('selected');
-            document.getElementById('char' + num).classList.add('selected');
-            selectedPlayerSrc = num === 1 ? "player1.png" : "player2.png";
-        }
-
         function startGame() {
             document.getElementById('start-menu').style.display = 'none';
             document.getElementById('score-display').style.display = 'block';
@@ -67,21 +57,13 @@
 
         function init3DGame() {
             const scene = new THREE.Scene();
-            
-            // 【新增】加载森林背景贴图
-            const textureLoader = new THREE.TextureLoader();
-            textureLoader.load('forest_bg.jpg', function(texture) {
-                scene.background = texture;
-            }, undefined, function() {
-                scene.background = new THREE.Color(0x2e4a22); // 如果图片没加载出来，用深绿色代替
-            });
-            // 雾化效果（让远处有森林深处的神秘感）
-            scene.fog = new THREE.Fog(0x2e4a22, 20, 100);
+            // 不再设置场景背景，让它透明，露出底下的网页图片！
 
             const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 150);
-            camera.position.set(0, 5, 9);
-            camera.lookAt(0, 0, -15);
+            camera.position.set(0, 4, 8); // 摄像机位置
+            camera.lookAt(0, 2, -20); // 视线对准远方跑道的消失点
 
+            // 核心修复2：alpha: true 让 3D 舞台变成透明的
             const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             document.body.appendChild(renderer.domElement);
@@ -91,96 +73,57 @@
             scene.add(light);
             scene.add(new THREE.AmbientLight(0xffffff, 0.8));
 
-            // 【新增】加载跑道地面贴图
-            const groundTex = textureLoader.load('runway.jpg');
-            groundTex.wrapS = THREE.RepeatWrapping;
-            groundTex.wrapT = THREE.RepeatWrapping;
-            groundTex.repeat.set(4, 50); // 让材质重复平铺，避免拉伸
-            const groundGeo = new THREE.PlaneGeometry(30, 300);
-            const groundMat = new THREE.MeshLambertMaterial({ map: groundTex });
-            const ground = new THREE.Mesh(groundGeo, groundMat);
-            ground.rotation.x = -Math.PI / 2;
-            ground.position.z = -50;
-            scene.add(ground);
-
-            // 主角加载
-            const playerTexture = textureLoader.load(selectedPlayerSrc);
+            // 加载同学图片
+            const textureLoader = new THREE.TextureLoader();
+            const playerTexture = textureLoader.load('player.png');
             const playerMat = new THREE.MeshBasicMaterial({ map: playerTexture, transparent: true, side: THREE.DoubleSide });
-            const playerGeo = new THREE.PlaneGeometry(2, 3);
-            playerGeo.translate(0, 1.5, 0); 
+            
+            // 核心修复3：因为你的图片周围有极大的透明空白，所以把这个画板放大很多倍，才能让中间的人显出正常大小
+            const playerGeo = new THREE.PlaneGeometry(12, 18); 
+            playerGeo.translate(0, 9, 0); // 底部对齐地面
             const player = new THREE.Mesh(playerGeo, playerMat);
             player.position.set(0, 0, 0); 
             scene.add(player);
 
-            const lanes = [-3, 0, 3]; 
+            // 跑道参数
+            const lanes =[-2.5, 0, 2.5]; // 左右两条道稍微收拢，配合远大近小的透视
             let currentLane = 1;      
             let targetX = lanes[currentLane];
             
-            let velocityY = 0;
-            const gravity = -0.015;
-            const jumpPower = 0.35;
-            let isJumping = false;
-            let isDucking = false;
-            let duckTimer = 0; 
-
-            let gameSpeed = 0.5;
+            let gameSpeed = 0.6;
             let score = 0;
             let frames = 0;
+            let spawnInterval = 60; // 障碍物刷新间隔
             let isGameOver = false;
             const obstacles =[];
 
-            // 【新增】加载障碍物图片材质 (使用 PlaneGeometry 让图片像纸片立牌一样立在路上)
-            const lowObsTex = textureLoader.load('obstacle_low.png');
-            const highObsTex = textureLoader.load('obstacle_high.png');
-            const lowObsMat = new THREE.MeshBasicMaterial({ map: lowObsTex, transparent: true, side: THREE.DoubleSide }); 
-            const highObsMat = new THREE.MeshBasicMaterial({ map: highObsTex, transparent: true, side: THREE.DoubleSide });
-            
-            const obsGeo = new THREE.PlaneGeometry(2.5, 2.5); // 障碍物的平面大小
+            // 障碍物：简单的红色危险箱子
+            const obsMat = new THREE.MeshLambertMaterial({ color: 0xe74c3c }); 
+            const obsGeo = new THREE.BoxGeometry(2, 2, 2);
 
+            // 自定义精准碰撞箱
             const playerBox = new THREE.Box3();
             const obsBox = new THREE.Box3();
-
+            
+            // 操作逻辑
             function moveLeft() { if (currentLane > 0) currentLane--; targetX = lanes[currentLane]; }
             function moveRight() { if (currentLane < 2) currentLane++; targetX = lanes[currentLane]; }
-            function jump() { 
-                if (!isJumping) { 
-                    velocityY = jumpPower; 
-                    isJumping = true; 
-                    if(isDucking) unduck(); 
-                } 
-            }
-            function duck() {
-                isDucking = true;
-                duckTimer = 40; 
-                player.scale.y = 0.4; 
-                if (isJumping) velocityY = -0.4; 
-            }
-            function unduck() {
-                isDucking = false;
-                player.scale.y = 1; 
-            }
 
             window.addEventListener('keydown', (e) => {
                 if (e.code === 'ArrowLeft') moveLeft();
                 if (e.code === 'ArrowRight') moveRight();
-                if (e.code === 'ArrowUp') jump();
-                if (e.code === 'ArrowDown') duck();
             });
 
-            let touchStartX = 0, touchStartY = 0;
+            // 手机滑动
+            let touchStartX = 0;
             window.addEventListener('touchstart', e => {
                 touchStartX = e.changedTouches[0].screenX;
-                touchStartY = e.changedTouches[0].screenY;
             });
             window.addEventListener('touchend', e => {
                 let dx = e.changedTouches[0].screenX - touchStartX;
-                let dy = e.changedTouches[0].screenY - touchStartY;
-                if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 30) { 
+                if (Math.abs(dx) > 30) { 
                     if (dx > 0) moveRight();
                     else moveLeft();
-                } else if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 30) { 
-                    if (dy < 0) jump(); 
-                    else duck();        
                 }
             });
 
@@ -194,51 +137,46 @@
                 if (isGameOver) return;
                 requestAnimationFrame(animate);
 
+                // 人物平滑左右移动
                 player.position.x += (targetX - player.position.x) * 0.2;
-                player.position.y += velocityY;
-                if (player.position.y > 0) {
-                    velocityY += gravity; 
-                } else {
-                    player.position.y = 0; 
-                    velocityY = 0;
-                    isJumping = false;
-                }
 
-                if (isDucking) {
-                    duckTimer--;
-                    if (duckTimer <= 0) unduck();
-                }
-
-                // 生成带有图片的障碍物
-                if (frames % 50 === 0) {
-                    const laneIndex = Math.floor(Math.random() * 3);
-                    const isHigh = Math.random() > 0.5; 
+                // 核心修复4：“绝不死局”刷新算法
+                if (frames >= spawnInterval) {
+                    frames = 0;
+                    // 随机决定这一排生成 1个 还是 2个 障碍物 (绝对不会是3个)
+                    const numObstacles = Math.random() > 0.5 ? 1 : 2;
                     
-                    let obs;
-                    if (isHigh) {
-                        obs = new THREE.Mesh(obsGeo, highObsMat);
-                        obs.position.set(lanes[laneIndex], 2.8, -80); // 悬浮高空
-                    } else {
-                        obs = new THREE.Mesh(obsGeo, lowObsMat);
-                        obs.position.set(lanes[laneIndex], 1.25, -80); // 贴近地面
-                    }
-                    scene.add(obs);
-                    obstacles.push(obs);
+                    // 打乱 0, 1, 2 三个车道，取前几个作为生成目标，剩下的必定是安全通道
+                    const availableLanes = [0, 1, 2].sort(() => 0.5 - Math.random());
+                    const blockedLanes = availableLanes.slice(0, numObstacles);
+
+                    blockedLanes.forEach(laneIndex => {
+                        const obs = new THREE.Mesh(obsGeo, obsMat);
+                        obs.position.set(lanes[laneIndex], 1, -100); // 从远处的地平线生成
+                        scene.add(obs);
+                        obstacles.push(obs);
+                    });
+                    
+                    // 动态调整下一波障碍物的距离，防止两波靠得太近没法躲
+                    spawnInterval = 50 + Math.floor(Math.random() * 40); 
                 }
 
-                // 纹理动画：让地面看起来在往后退（配合跑道贴图）
-                groundTex.offset.y -= gameSpeed * 0.05;
-
-                playerBox.setFromObject(player);
-                playerBox.expandByScalar(-0.4); // 缩小判定体积，增加容错率
+                // 核心修复5：手动设置人物真实碰撞体积，排除图片四周的透明空气！
+                // 这里的宽(1.0)和高(2.5)才是判定你同学死没死的真实体积，而不是那张巨大的图片
+                playerBox.setFromCenterAndSize(
+                    new THREE.Vector3(player.position.x, 1.25, player.position.z),
+                    new THREE.Vector3(1.0, 2.5, 1.0) 
+                );
 
                 for (let i = 0; i < obstacles.length; i++) {
                     let obs = obstacles[i];
-                    obs.position.z += gameSpeed;
+                    obs.position.z += gameSpeed; // 障碍物迎面撞来
 
+                    // 获取障碍物碰撞体积并稍微缩小增加容错率
                     obsBox.setFromObject(obs);
-                    obsBox.expandByScalar(-0.2); // 缩小障碍物判定体积
+                    obsBox.expandByScalar(-0.2); 
 
+                    // 死亡检测
                     if (playerBox.intersectsBox(obsBox)) {
                         isGameOver = true;
                         document.getElementById('game-over').style.display = 'block';
@@ -246,6 +184,7 @@
                         break;
                     }
 
+                    // 障碍物躲过摄像机，加分并销毁
                     if (obs.position.z > 5) {
                         scene.remove(obs);
                         obstacles.splice(i, 1);
@@ -256,7 +195,7 @@
                 }
 
                 frames++;
-                gameSpeed += 0.0001;
+                gameSpeed += 0.0002; // 跑得越来越快
                 renderer.render(scene, camera);
             }
 
