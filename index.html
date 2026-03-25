@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>恶搞同学跑酷 - 终极透视修复版</title>
+    <title>恶搞同学跑酷 - 音乐养老版</title>
     <!-- 引入 Three.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
@@ -40,25 +40,35 @@
 
         <div id="game-over" class="panel" style="display: none;">
             <h1 style="color: #c0392b;">你被撞飞了！</h1>
-            <p style="font-size: 24px;">坚持了: <span id="final-score" style="color:#c0392b; font-weight:bold;">0</span> 分</p>
-            <button onclick="location.reload()">再逃一次</button>
+            <p style="font-size: 24px;">得分: <span id="final-score" style="color:#c0392b; font-weight:bold;">0</span></p>
+            <button onclick="location.reload()">重新开始</button>
         </div>
 
         <div id="score-display">得分: 0</div>
     </div>
 
     <script>
+        // --- 音效系统 ---
+        const audioStart = new Audio('start.mp3');
+        const audioBgm = new Audio('bgm.mp3');
+        audioBgm.loop = true; // BGM循环播放
+        const audioEnd = new Audio('end.mp3');
+
         function startGame() {
             document.getElementById('start-menu').style.display = 'none';
             document.getElementById('score-display').style.display = 'block';
+            
+            // 播放点击开始的音效，并同时播放BGM
+            audioStart.play().catch(e => console.log("等待交互后播放音频"));
+            audioBgm.volume = 0.6; // BGM音量稍微调小一点，防止太吵
+            audioBgm.play().catch(e => console.log("等待交互后播放音频"));
+
             init3DGame();
         }
 
         function init3DGame() {
             const scene = new THREE.Scene();
 
-            // 【核心修复2】调整摄像机视角！现在摄像机会完美直视前方地平线消失点。
-            // 这样冲过来的红衣服同学就会从极小的一点，完美呈现“近大远小”猛冲到你脸上！
             const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 200);
             camera.position.set(0, 4, 8); 
             camera.lookAt(0, 4, -100); 
@@ -69,34 +79,33 @@
 
             const textureLoader = new THREE.TextureLoader();
 
-            // 1. 加载玩家 (跑步的同学)
+            // 1. 加载玩家 (跑步的白衣服同学)
             const playerTexture = textureLoader.load('player.png');
             const playerMat = new THREE.MeshBasicMaterial({ map: playerTexture, transparent: true, side: THREE.DoubleSide });
             
-            // 【核心修复1】去除了向上的强行偏移，并且把面板放得极大！
-            // 因为你抠图带有大量多余空白，放大面板可以让位于中间的人恢复正常大小且踩在地上。
-            const playerGeo = new THREE.PlaneGeometry(24, 30); 
+            // 【减肥手术】将原来的 24x30 大幅缩小到 6x8，视野极其开阔！
+            const playerGeo = new THREE.PlaneGeometry(6, 8); 
             const player = new THREE.Mesh(playerGeo, playerMat);
-            player.position.set(0, 4, 0); 
+            player.position.set(0, 3, 0); // 调整Y轴高度让他脚踩在地上
             scene.add(player);
 
-            // 2. 加载障碍物 (穿红衣服的同学)
+            // 2. 加载障碍物 (红衣服同学)
             const enemyTexture = textureLoader.load('enemy.png');
             const enemyMat = new THREE.MeshBasicMaterial({ map: enemyTexture, transparent: true, side: THREE.DoubleSide });
-            const enemyGeo = new THREE.PlaneGeometry(4, 5); // 障碍物尺寸
+            const enemyGeo = new THREE.PlaneGeometry(4, 5); // 红衣服同学尺寸保持不变
 
-            const lanes = [-3.5, 0, 3.5]; 
+            const lanes =[-3.5, 0, 3.5]; 
             let currentLane = 1;      
             let targetX = lanes[currentLane];
             
-            let gameSpeed = 0.8;
+            // 【降低难度】减慢初始速度和加速频率
+            let gameSpeed = 0.45; // 初始速度大幅降低
             let score = 0;
             let frames = 0;
-            let spawnInterval = 50; 
+            let spawnInterval = 70; // 拉长第一波怪物的刷新时间
             let isGameOver = false;
             const obstacles =[];
 
-            // 独立判定箱：由于图有很多空白，我们抛弃图片尺寸，手动在他们身体周围画隐形的物理碰撞盒
             const playerHitbox = new THREE.Box3();
             const enemyHitbox = new THREE.Box3();
 
@@ -140,40 +149,43 @@
 
                     blockedLanes.forEach(laneIndex => {
                         const obs = new THREE.Mesh(enemyGeo, enemyMat);
-                        // 从极远的 z=-130 的位置生成，完全贴合背景道路的尽头！
-                        obs.position.set(lanes[laneIndex], 4, -130); 
+                        obs.position.set(lanes[laneIndex], 3, -130); 
                         scene.add(obs);
                         obstacles.push(obs);
                     });
                     
-                    spawnInterval = 40 + Math.floor(Math.random() * 30); 
+                    // 【降低难度】拉长每波怪物的间距，防死局更稳
+                    spawnInterval = 60 + Math.floor(Math.random() * 40); 
                 }
 
-                // 强制重写玩家的受击面积：只判定中心宽1.5、高4的真实肉体面积
+                // 随着白衣同学体积变小，将真实物理受击面积同步缩小
                 playerHitbox.setFromCenterAndSize(
                     new THREE.Vector3(player.position.x, player.position.y, player.position.z),
-                    new THREE.Vector3(1.5, 4, 1.5) 
+                    new THREE.Vector3(1.2, 3.5, 1.0) 
                 );
 
                 for (let i = 0; i < obstacles.length; i++) {
                     let obs = obstacles[i];
                     obs.position.z += gameSpeed; 
 
-                    // 强制重写红衣同学的受击面积
                     enemyHitbox.setFromCenterAndSize(
                         new THREE.Vector3(obs.position.x, obs.position.y, obs.position.z),
                         new THREE.Vector3(2.5, 4.5, 2)
                     );
 
-                    // 检测两人肉身是否相撞
+                    // 发生撞击！
                     if (playerHitbox.intersectsBox(enemyHitbox)) {
                         isGameOver = true;
+                        
+                        // --- 音乐控制 ---
+                        audioBgm.pause(); // 暂停BGM
+                        audioEnd.play();  // 播放撞死惨叫声
+
                         document.getElementById('game-over').style.display = 'block';
                         document.getElementById('final-score').innerText = score;
                         break;
                     }
 
-                    // 躲过之后加分
                     if (obs.position.z > 8) {
                         scene.remove(obs);
                         obstacles.splice(i, 1);
@@ -184,7 +196,8 @@
                 }
 
                 frames++;
-                gameSpeed += 0.0002; 
+                // 【降低难度】加速度减缓，跑很久才会觉得快
+                gameSpeed += 0.00008; 
                 renderer.render(scene, camera);
             }
 
