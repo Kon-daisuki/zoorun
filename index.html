@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>恶搞跑酷 - 修复版</title>
+    <title>恶搞跑酷 - 尺寸放大版</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         body { 
@@ -36,7 +36,7 @@
         <div id="score-display">得分: 0</div>
         
         <div id="start-panel" class="panel">
-            <h1>熊大快跑</h1>
+            <h1>准备好了吗？</h1>
             <p>左右滑动或点击两侧移动</p>
             <button onclick="startGame()">开始游戏</button>
         </div>
@@ -49,14 +49,9 @@
     </div>
 
     <script>
-        // 游戏资源（请确保这些文件与html在同一目录）
-        // 纹理: player.png, enemy.png, ground.jpg
-        // 音频: bgm.mp3, jump.mp3, end.mp3
-
         function startGame() {
             document.getElementById('start-panel').style.display = 'none';
 
-            // 音频设置
             const audioBgm = new Audio('bgm.mp3');
             audioBgm.loop = true;
             audioBgm.play();
@@ -64,16 +59,14 @@
 
             // --- 1. 基础场景 ---
             const scene = new THREE.Scene();
-            // 雾气效果，让远处看起来朦胧一点，更有纵深感
-            scene.fog = new THREE.Fog(0x000000, 10, 30);
+            scene.fog = new THREE.Fog(0x000000, 10, 35);
 
             const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
             const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             document.body.appendChild(renderer.domElement);
 
-            // 摄像机位置 (高度稍低，俯视跑道)
-            camera.position.set(0, 3, 5);
+            camera.position.set(0, 3.5, 6); // 稍微调高一点摄像机，适应更大的模型
             camera.lookAt(0, 1, -5);
 
             // --- 2. 跑道地面 ---
@@ -81,9 +74,9 @@
             const groundTexture = textureLoader.load('ground.jpg');
             groundTexture.wrapS = THREE.RepeatWrapping;
             groundTexture.wrapT = THREE.RepeatWrapping;
-            groundTexture.repeat.set(1, 10); // 增加纵向重复
+            groundTexture.repeat.set(1, 10);
 
-            const groundGeo = new THREE.PlaneGeometry(10, 100);
+            const groundGeo = new THREE.PlaneGeometry(12, 100);
             const groundMat = new THREE.MeshBasicMaterial({ map: groundTexture });
             const ground = new THREE.Mesh(groundGeo, groundMat);
             ground.rotation.x = -Math.PI / 2;
@@ -94,15 +87,15 @@
             const playerTexture = textureLoader.load('player.png');
             const playerMat = new THREE.MeshBasicMaterial({ map: playerTexture, transparent: true, side: THREE.DoubleSide });
             
-            // 【核心修复：缩小玩家尺寸】适配手机竖屏
-            const playerGeo = new THREE.PlaneGeometry(1.2, 1.7); 
-            playerGeo.translate(0, 0.85, 0); 
+            // 【调整：适当放大尺寸】宽度1.6，高度2.2
+            const playerGeo = new THREE.PlaneGeometry(1.6, 2.2); 
+            playerGeo.translate(0, 1.1, 0); 
             const player = new THREE.Mesh(playerGeo, playerMat);
             player.position.set(0, 0, 0); 
             scene.add(player);
 
-            // 【核心修复：收窄跑道间距】从2.5降到1.4，防止卡墙
-            const lanes = [-1.4, 0, 1.4]; 
+            // 【调整：同步放宽间距】从1.4增加到1.8，确保大尺寸模型不重叠
+            const lanes = [-1.8, 0, 1.8]; 
             let currentLane = 1;      
             let targetX = lanes[currentLane];
 
@@ -110,15 +103,15 @@
             const obstacles = [];
             const enemyTexture = textureLoader.load('enemy.png');
             
-            // 【核心修复：缩小障碍物尺寸】
-            const enemyGeo = new THREE.PlaneGeometry(1.2, 1.73); 
-            enemyGeo.translate(0, 0.865, 0); 
+            // 【调整：障碍物尺寸也同步放大】
+            const enemyGeo = new THREE.PlaneGeometry(1.6, 2.3); 
+            enemyGeo.translate(0, 1.15, 0); 
 
             function spawnObstacle() {
                 const mat = new THREE.MeshBasicMaterial({ map: enemyTexture, transparent: true });
                 const obs = new THREE.Mesh(enemyGeo, mat);
                 const laneIdx = Math.floor(Math.random() * 3);
-                obs.position.set(lanes[laneIdx], 0, -25);
+                obs.position.set(lanes[laneIdx], 0, -30); // 稍微放远一点生成，给玩家反应时间
                 scene.add(obs);
                 obstacles.push(obs);
             }
@@ -142,7 +135,7 @@
 
             // --- 6. 游戏主循环 ---
             let score = 0;
-            let gameSpeed = 0.15;
+            let gameSpeed = 0.18; // 稍微提升基础初速，因为模型变大了
             let isGameOver = false;
             let frames = 0;
 
@@ -153,38 +146,31 @@
                 if (isGameOver) return;
                 requestAnimationFrame(animate);
 
-                // 玩家平滑移动
                 player.position.x += (targetX - player.position.x) * 0.15;
-                
-                // 地面滚动效果
                 groundTexture.offset.y -= gameSpeed * 0.2;
 
-                // 生成障碍物
-                if (frames % 60 === 0) spawnObstacle();
+                if (frames % 55 === 0) spawnObstacle(); // 生成频率稍微加快
 
-                // 更新玩家碰撞箱 (中心高度0.85，尺寸收紧提高手感)
+                // 更新玩家碰撞箱 (尺寸随模型放大而微调)
                 playerHitbox.setFromCenterAndSize(
-                    new THREE.Vector3(player.position.x, 0.85, player.position.z),
-                    new THREE.Vector3(0.8, 1.5, 1.0) 
+                    new THREE.Vector3(player.position.x, 1.1, player.position.z),
+                    new THREE.Vector3(1.0, 2.0, 1.0) 
                 );
 
-                // 障碍物逻辑
                 for (let i = 0; i < obstacles.length; i++) {
                     let obs = obstacles[i];
                     obs.position.z += gameSpeed; 
 
-                    // 离得非常近时淡出，防止遮挡视线
                     if (obs.position.z > -1) {
-                        obs.material.opacity = Math.max(0, 1 - (obs.position.z + 1) / 4);
+                        obs.material.opacity = Math.max(0, 1 - (obs.position.z + 1) / 5);
                     }
 
-                    // 更新障碍物碰撞箱 (中心高度0.865)
+                    // 更新障碍物碰撞箱
                     enemyHitbox.setFromCenterAndSize(
-                        new THREE.Vector3(obs.position.x, 0.865, obs.position.z),
-                        new THREE.Vector3(0.8, 1.5, 1.0)
+                        new THREE.Vector3(obs.position.x, 1.15, obs.position.z),
+                        new THREE.Vector3(1.0, 2.0, 1.0)
                     );
 
-                    // 碰撞判定
                     if (obs.material.opacity > 0.5 && playerHitbox.intersectsBox(enemyHitbox)) {
                         isGameOver = true;
                         audioBgm.pause(); 
@@ -194,7 +180,6 @@
                         break;
                     }
 
-                    // 移除跑出屏幕的障碍物
                     if (obs.position.z > 8) {
                         scene.remove(obs);
                         obstacles.splice(i, 1);
@@ -205,7 +190,7 @@
                 }
 
                 frames++;
-                gameSpeed += 0.00005; // 难度随时间缓慢增加
+                gameSpeed += 0.00006; 
                 renderer.render(scene, camera);
             }
 
@@ -214,4 +199,3 @@
     </script>
 </body>
 </html>
-
